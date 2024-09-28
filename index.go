@@ -16,7 +16,15 @@ import (
 
 func main() {
 	fmt.Println("Starting execution!")
+
 	db, err := db.ConnectToPostgres()
+
+	if err != nil {
+		fmt.Println("Failed to connect to the database:", err)
+		return
+	}
+
+	addressAndQueue := "pedidos::resposta"
 
 	// create connection
 	connection, err := messaging.ConnectToActiveMQ()
@@ -34,14 +42,17 @@ func main() {
 	}
 
 	// create a new sender
-	sender, err := session.NewSender(context.TODO(), "pedidos::resposta", nil)
+	sender, err := session.NewSender(context.TODO(), addressAndQueue, nil)
 	if err != nil {
 		fmt.Println("Failed to create sender:", err)
 		return
 	}
 
+	// create a new receiver
+	receiver, err := session.NewReceiver(context.TODO(), addressAndQueue, nil)
+
 	if err != nil {
-		fmt.Println("Failed to connect to the database:", err)
+		fmt.Println("Failed to create receiver:", err)
 		return
 	}
 
@@ -49,6 +60,7 @@ func main() {
 	isSearchProduct := false
 	isUpdateProduct := false
 	isSendMessage := false
+	isReceiveMessage := false
 
 	if isCreateProduct {
 		repository.CreateProduct(db, &model.Product{
@@ -108,7 +120,20 @@ func main() {
 			fmt.Println("Failed to send message:", err)
 			return
 		}
+	}
 
+	if isReceiveMessage {
+		// receive the next message
+		msg, err := receiver.Receive(context.TODO(), nil)
+		if err != nil {
+			// handle error
+		}
+
+		msgParsed := string(msg.GetData())
+
+		fmt.Println("Message:", msgParsed)
+
+		receiver.AcceptMessage(context.TODO(), msg)
 	}
 
 }
